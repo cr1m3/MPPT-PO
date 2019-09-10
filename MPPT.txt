@@ -1,0 +1,140 @@
+// inisialisasi PWM
+int PWMpin = 5; //Pin 5 arduino sebagai PWM
+float dutycycle = 127.0; 
+float changeD = 25.0;
+float dutycycle_1;
+
+//inisialisasi sensor tegangan input
+float Vo; //penginisial Vo menggunakan data jenis float
+float Vin; //penginisial Vin menggunakan data jenis float
+float R1; //Penginisial R1 menggunakan data jenis float
+float R2; //penginisial R2 menggunakan data jenis float
+float adc; //penginisial adc menggunakan data jenis float
+
+//inisialisasi sensor tegangan output
+float Vo_out; //penginisial Vo_out menggunakan data jenis float
+float Vout; //Penginisial Vout menggunakan data jenis float
+float adc_out; //Penginisial adc_out menggunakan data jenis float
+
+//inisialisasi Sensor Arus
+const int analogin = A1; //A2 menggunakan integer konstan di pin analog A2
+int mVperAmp = 100; //nilai mVperAmp diset awal bernilai 185
+int RAWvalue = 0; //Raw value diset awal bernilai 0
+int ACSoffset = 2500; //ACSoffset diset awal bernilai 2500
+double Voltage = 0; //Amps diset awal berniali 0 dan memiliki jenis data double
+double Amps = 0; //Amps diset awal bernilai0 dan memiliki jenis data double
+
+//Inisisalisai untuk algoritma MPPT
+int P; //Data P dengan jenis data integer
+int dP; //Delta P dengan jenis data integer
+int dV; //Delta V dengan jenis data integer
+float Pprev = 0.0; //nilai daya sebelumnya
+float Vprev = 0.0; //nilai tegangan sebelumnya
+double Vref; //nilai tegangan referensi
+
+const float V_Batt = 28.0; //v baterai berada pada tegangan pengecasan 28V
+
+//mengatur program awal
+void setup()
+{
+  Serial.begin(9600); //Membuka serial port, mensetting kecepatan data ke 9600
+  R1 = 10000.0; //nilai R1 = 10K ohm
+  R2 = 1000.0; //nilai R2 = 1K ohm
+  pinMode(PWMpin,OUTPUT); //PWMpin sebagai output
+  pinMode(A0,INPUT); //A0 sebagai input
+  pinMode(A1,INPUT); //A1 sebagai input
+  pinMode(A2,INPUT); //A2 sebagai input
+  TCCR0B = (TCCR0B&0b11111000)|1; //menseting register arduino untuk menggunakan timer 0
+  while (!Serial){
+    ;
+  }
+int xxx=mVperAmp -34;
+mVperAmp = xxx;
+ 
+   }
+  
+void Dutycycle(){
+  analogWrite(PWMpin,dutycycle_1); //menjalankan PWMpin sebagai dutycycle
+  Serial.println(dutycycle_1);
+}
+
+void SensorTeganganInput(){
+  adc = analogRead(A1); //pin analog A1 digunakan sebagai adc
+  Vo = (adc*5.0)/1023.0; //mencari nilai Vo
+  Vin = Vo / (R2/(R2+R1)); //mencari nilai untuk tegangan output yang dibaca sensor
+}
+
+void SensorTeganganOutput(){
+  adc_out = analogRead(A0); //pin analog A0 digunakan sebagai adc
+  Vo_out = (adc_out*5.0)/1023.0; //mencari nilai vo_out
+  Vout = Vo_out / (R2/(R1+R2)); //mencarei nilai untuk tegangan output yang dibaca sensor
+}
+
+void SensorArus(){
+  RAWvalue = analogRead(analogin); //membaca pin analog "analogin"
+  Voltage = (RAWvalue / 1023.0)*5000; //hasil mencari tegangan
+  Amps = fabs((Voltage - ACSoffset)/mVperAmp); //mencari nilai ampere
+}
+
+void pno()
+{
+  P = Vin * Amps;
+  dP = P - Pprev;
+  dV = Vin - Vprev;
+  if(dP > 0.0)
+  {
+    Serial.println("dP > 0.0");
+    if(dV > 0.0)
+    {
+    Serial.println("dV > 0.0");
+      Vref = V_Batt + dV;
+    Serial.println(Vref);
+    }
+    else{
+      Vref = V_Batt - dV;
+    Serial.println(Vref);
+    }
+  }
+  else{
+    if (dV < 0.0){
+    Serial.println("dV < 0.0");
+    Vref = V_Batt - dV;
+    Serial.println(Vref);
+  }
+  else{
+    Vref = V_Batt + dV;
+    Serial.println(Vref);
+  }
+}
+  Vprev = Vin;
+  Pprev = P;
+return P;
+}
+
+
+void charger(){
+ //for(dutycycle=0; dutycycle<=255; dutycycle ++)  
+ if (Vout >= Vref)
+ {
+  dutycycle_1 = dutycycle - changeD;
+ }
+ else{
+  dutycycle_1 = dutycycle + changeD;
+ }
+
+}
+ 
+void loop(){
+  delay(10);
+  Dutycycle();
+  SensorTeganganInput();
+  SensorTeganganOutput();
+  SensorArus();
+  if(Vin <= 15 || Vin >=35){
+    dutycycle = 0;
+  }
+  else{
+  pno();
+  charger();
+  }
+}
